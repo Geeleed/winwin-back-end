@@ -8,6 +8,7 @@ const upload = multer({ storage });
 const checkAuth = require("./checkAuth");
 
 const AWS = require("aws-sdk");
+const sharp = require("sharp");
 const BUCKET_NAME = process.env.BUCKET_NAME;
 const BUCKET_REGION = process.env.BUCKET_REGION;
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
@@ -36,11 +37,23 @@ router.post(
       const files = req.files;
       const imageFolder = "image";
       const imageNames = files.map((i) => uuidv4());
-      const fileData = imageNames.map((imageName, index) => ({
-        Bucket: BUCKET_NAME + `/${imageFolder}`,
-        Key: imageName,
-        Body: files[index].buffer,
-      }));
+      // const fileData = imageNames.map((imageName, index) => ({
+      //   Bucket: BUCKET_NAME + `/${imageFolder}`,
+      //   Key: imageName,
+      //   Body: files[index].buffer,
+      // }));
+      const fileData = await Promise.all(
+        imageNames.map(async (imageName, index) => {
+          const resizedImage = await sharp(files[index].buffer)
+            .resize({ height: 320, width: 320, fit: "contain" })
+            .toBuffer();
+          return {
+            Bucket: BUCKET_NAME + `/${imageFolder}`,
+            Key: imageName,
+            Body: resizedImage,
+          };
+        })
+      );
       const imageUploads = fileData.map((item) => s3.upload(item).promise());
       const result = await Promise.all(imageUploads);
       const imageUrls = result.map((data) => data.Location);
