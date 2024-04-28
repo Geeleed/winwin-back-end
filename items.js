@@ -26,6 +26,7 @@ router.post(
   "/myItem",
   checkAuth,
   upload.array("files", 3),
+  express.json(),
   async (req, res) => {
     try {
       const { title, description, weight, height, width, length, sending } =
@@ -131,6 +132,12 @@ router.get(
 router.delete("/myItem", upload.any(), express.json(), async (req, res) => {
   try {
     const { itemId } = req.body;
+    const locations = (
+      await db.query("SELECT imageUrls FROM Items WHERE itemId=$1", [itemId])
+    ).rows[0].imageurls
+      .slice(1, -1)
+      .split(",")
+      .map((i) => i.slice(1, -1));
     await db.query("BEGIN");
     await db.query("DELETE FROM Items WHERE itemId=$1", [itemId]);
     await db.query(
@@ -146,6 +153,12 @@ router.delete("/myItem", upload.any(), express.json(), async (req, res) => {
       itemId,
     ]);
     await db.query("COMMIT");
+    const objects = locations.map((location) => ({
+      Key: "image" + location.split("image")[1],
+    }));
+    await s3
+      .deleteObjects({ Bucket: BUCKET_NAME, Delete: { Objects: objects } })
+      .promise();
     res.json({ message: "ลบข้อมูล item สำเร็จ" });
   } catch (error) {
     console.error(error);
