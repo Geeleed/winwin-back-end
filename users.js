@@ -22,10 +22,14 @@ router.post("/signup", upload.any(), async (req, res) => {
       [firstname, lastname, email, hashPw, question, hashAw, phone, userId]
     );
     const token = generateToken({ userId });
-    res.json({ message: "สมัครสำเร็จ", token });
+    res.json({ message: "สมัครสำเร็จ", token, isOk: true });
   } catch (error) {
     console.error(error);
-    res.json({ error, message: "มีข้อผิดพลาด บัญชีนี้อาจถูกใช้งานแล้ว" });
+    res.json({
+      error,
+      message: "มีข้อผิดพลาด บัญชีนี้อาจถูกใช้งานแล้ว",
+      isOk: false,
+    });
   }
 });
 
@@ -38,13 +42,25 @@ router.post("/signin", upload.any(), async (req, res) => {
   try {
     if (await comparePassword(password, userData.password)) {
       const token = generateToken({ userId: userData.userid });
-      res.json({ message: "เข้าระบบสำเร็จ", token });
+      res.json({ message: "เข้าระบบสำเร็จ", token, isOk: true });
     } else {
-      res.json({ message: "รหัสผ่านไม่ถูกต้อง" });
+      res.json({ message: "รหัสผ่านไม่ถูกต้อง", isOk: false });
     }
   } catch (error) {
     console.error(error);
-    res.json({ error, message: "บางอย่างไม่ถูกต้อง" });
+    res.json({ error, message: "บางอย่างไม่ถูกต้อง", isOk: false });
+  }
+});
+
+router.get("/forgot/:email", upload.any(), async (req, res) => {
+  try {
+    const { email } = req.params;
+    const data = (await db.query(`SELECT * FROM Users WHERE email=$1`, [email]))
+      .rows[0];
+    res.json({ data, message: "เปลี่ยนรหัสผ่านสำเร็จ", isOk: true });
+  } catch (error) {
+    console.error(error);
+    res.json({ error, message: "กรุณาลองใหม่อีกครั้ง", isOk: false });
   }
 });
 
@@ -59,13 +75,13 @@ router.post("/forgot", upload.any(), async (req, res) => {
       await db.query(`UPDATE Users SET password='${newHash}' WHERE email=$1`, [
         email,
       ]);
-      res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ" });
+      res.json({ message: "เปลี่ยนรหัสผ่านสำเร็จ", isOk: true });
     } else {
       res.json({ message: "คำตอบไม่ถูกต้อง" });
     }
   } catch (error) {
     console.error(error);
-    res.json({ error, message: "กรุณาลองใหม่อีกครั้ง" });
+    res.json({ error, message: "กรุณาลองใหม่อีกครั้ง", isOk: false });
   }
 });
 
@@ -82,10 +98,10 @@ router.put(
         `UPDATE Users SET firstname=$1, lastname=$2, question=$3, answer=$4, phone=$5 WHERE userId=$6`,
         [firstname, lastname, question, hashAW, phone, req.userId]
       );
-      res.json({ message: "แก้ไขข้อมูลสำเร็จ" });
+      res.json({ message: "แก้ไขข้อมูลสำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -117,10 +133,10 @@ router.delete(
         req.userId,
       ]);
       await db.query("COMMIT");
-      res.json({ message: "ลบบัญชีสำเร็จ" });
+      res.json({ message: "ลบบัญชีสำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -130,10 +146,20 @@ router.get("/profile", checkAuth, async (req, res) => {
     const data = await db.query("SELECT * FROM Users WHERE userId=$1", [
       req.userId,
     ]);
-    res.json({ data: data.rows[0] });
+    res.json({ data: data.rows[0], isOk: true });
   } catch (error) {
     console.error(error);
-    res.json({ error, message: "มีข้อผิดพลาด" });
+    res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
+  }
+});
+
+router.get("/auth", checkAuth, express.json(), async (req, res) => {
+  try {
+    const token = generateToken({ userId: req.userId });
+    res.json({ status: true, isOk: true, token });
+  } catch (error) {
+    console.error(error);
+    res.json({ status: false, isOk: false });
   }
 });
 

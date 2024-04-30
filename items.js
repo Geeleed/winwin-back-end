@@ -7,14 +7,21 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 const checkAuth = require("./checkAuth");
 
+// const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+// const s3 = new DynamoDBClient({});
 const AWS = require("aws-sdk");
 const sharp = require("sharp");
 const BUCKET_NAME = process.env.BUCKET_NAME;
 const BUCKET_REGION = process.env.BUCKET_REGION;
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
 const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-const s3 = new AWS.S3();
-s3.config.update({
+// const s3 = new AWS.S3();
+// s3.config.update({
+//   accessKeyId: AWS_ACCESS_KEY_ID,
+//   secretAccessKey: AWS_SECRET_ACCESS_KEY,
+//   region: BUCKET_REGION,
+// });
+const s3 = new AWS.S3({
   accessKeyId: AWS_ACCESS_KEY_ID,
   secretAccessKey: AWS_SECRET_ACCESS_KEY,
   region: BUCKET_REGION,
@@ -78,10 +85,10 @@ router.post(
           ]
         )
         .catch((err) => console.error(err));
-      res.json({ message: "อัปโหลดสำเร็จ" });
+      res.json({ message: "อัปโหลดสำเร็จ", isOk: true, files });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -107,10 +114,10 @@ router.put(
         "UPDATE Items SET title=$1, description=$2, weight=$3, height=$4, width=$5, length=$6, sending=$7 WHERE itemId=$8",
         [title, description, weight, height, width, length, sending, itemId]
       );
-      res.json({ message: "แก้ไขข้อมูลสำเร็จ" });
+      res.json({ message: "แก้ไขข้อมูลสำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -134,10 +141,10 @@ router.get(
           [itemId, req.userId]
         );
       }
-      res.json({ data });
+      res.json({ data: data.rows, isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -172,10 +179,10 @@ router.delete("/myItem", upload.any(), express.json(), async (req, res) => {
     await s3
       .deleteObjects({ Bucket: BUCKET_NAME, Delete: { Objects: objects } })
       .promise();
-    res.json({ message: "ลบข้อมูล item สำเร็จ" });
+    res.json({ message: "ลบข้อมูล item สำเร็จ", isOk: true });
   } catch (error) {
     console.error(error);
-    res.json({ error, message: "มีข้อผิดพลาด" });
+    res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
   }
 });
 
@@ -187,13 +194,17 @@ router.get(
   async (req, res) => {
     try {
       const data = await db.query(
-        "SELECT * FROM Items WHERE ownerId!=$1 AND status='posting'",
+        "SELECT * FROM Items WHERE ownerId!=$1 AND status='posting' AND itemId NOT IN (SELECT itemId FROM ItemActions WHERE clickerId=$1)",
         [req.userId]
       );
-      res.json({ data });
+      res.json({
+        data: data.rows,
+        message: "โหลดข้อมูลมาตลาดสำเร็จ",
+        isOk: true,
+      });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -210,10 +221,10 @@ router.put(
         "UPDATE Items SET status='hidden' WHERE itemId=$1 AND ownerId=$2",
         [itemId, req.userId]
       );
-      res.json({ message: "เปลี่ยนสถานะเป็น hidden สำเร็จ" });
+      res.json({ message: "เปลี่ยนสถานะเป็น hidden สำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -230,10 +241,10 @@ router.put(
         "UPDATE Items SET status='posting' WHERE itemId=$1 AND ownerId=$2",
         [itemId, req.userId]
       );
-      res.json({ message: "เปลี่ยนสถานะเป็น posting สำเร็จ" });
+      res.json({ message: "เปลี่ยนสถานะเป็น posting สำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -250,10 +261,10 @@ router.put(
         "UPDATE Items SET status='safePosting' WHERE itemId=$1 AND ownerId=$2",
         [itemId, req.userId]
       );
-      res.json({ message: "เปลี่ยนสถานะเป็น safePosting สำเร็จ" });
+      res.json({ message: "เปลี่ยนสถานะเป็น safePosting สำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error, message: "มีข้อผิดพลาด" });
+      res.json({ error, message: "มีข้อผิดพลาด", isOk: false });
     }
   }
 );
@@ -270,7 +281,7 @@ router.put(
         "UPDATE Items SET status='instock' WHERE itemId=$1 AND ownerId=$2",
         [itemId, req.userId]
       );
-      res.json({ message: "เปลี่ยนสถานะเป็น instock สำเร็จ" });
+      res.json({ message: "เปลี่ยนสถานะเป็น instock สำเร็จ", isOk: true });
     } catch (error) {
       console.error(error);
       res.json({ error, message: "มีข้อผิดพลาด" });
@@ -293,10 +304,13 @@ router.post(
         "INSERT INTO ItemActions (itemId,ownerId,clickerId,act) VALUES ($1,$2,$3,$4)",
         [itemId, ownerid, req.userId, "wish"]
       );
-      res.json({ message: "บันทึกไว้เป็นรายการที่อยากได้เรียบร้อย" });
+      res.json({
+        message: "บันทึกไว้เป็นรายการที่อยากได้เรียบร้อย",
+        isOk: true,
+      });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -305,14 +319,14 @@ router.get("/wish", checkAuth, async (req, res) => {
   try {
     const data = (
       await db.query(
-        "SELECT * FROM Items WHERE itemId IN (SELECT itemId FROM ItemActions WHERE status='wish' AND clickerId=$1)",
+        "SELECT * FROM Items WHERE itemId IN (SELECT itemId FROM ItemActions WHERE act='wish' AND clickerId=$1)",
         [req.userId]
       )
     ).rows;
-    res.json(data);
+    res.json({ data, isOk: true });
   } catch (error) {
     console.error(error);
-    res.json({ error });
+    res.json({ error, isOk: false });
   }
 });
 
@@ -328,10 +342,10 @@ router.delete(
         "DELETE FROM ItemActions WHERE clickerId=$1 AND act=$2 AND itemId=$3",
         [req.userId, "wish", itemId]
       );
-      res.json({ message: "ยกเลิกการ wish เรียบร้อย" });
+      res.json({ message: "ยกเลิกการ wish เรียบร้อย", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -347,14 +361,19 @@ router.post(
       const { ownerid } = (
         await db.query("SELECT ownerId FROM Items WHERE itemId=$1", [itemId])
       ).rows[0];
+      // await db.query(
+      //   " INSERT INTO ItemActions (itemId,ownerId,clickerId,act) VALUES ($1,$2,$3,$4)",
+      //   [itemId, ownerid, req.userId, "exchange"]
+      // );
       await db.query(
-        " INSERT INTO ItemActions (itemId,ownerId,clickerId,act) VALUES ($1,$2,$3,$4)",
+        `WITH updated_rows AS (UPDATE ItemActions SET act = $4 WHERE itemId = $1 AND ownerId = $2 AND clickerId = $3 RETURNING *)
+        INSERT INTO ItemActions (itemId, ownerId, clickerId, act) SELECT $1, $2, $3, $4 WHERE NOT EXISTS (SELECT 1 FROM updated_rows)`,
         [itemId, ownerid, req.userId, "exchange"]
       );
-      res.json({ message: "ส่งคำขอแลกเปลี่ยนเรียบร้อย" });
+      res.json({ message: "ส่งคำขอแลกเปลี่ยนเรียบร้อย", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -371,10 +390,10 @@ router.delete(
         "DELETE FROM ItemActions WHERE clickerId=$1 AND act=$2 AND itemId=$3",
         [req.userId, "exchange", itemId]
       );
-      res.json({ message: "ยกเลิกคำขอแลกเปลี่ยนเรียบร้อย" });
+      res.json({ message: "ยกเลิกคำขอแลกเปลี่ยนเรียบร้อย", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -387,13 +406,32 @@ router.get(
   async (req, res) => {
     try {
       const data = await db.query(
-        "SELECT * FROM Items WHERE itemId IN (SELECT itemId FROM ItemActions WHERE action='exchange' AND ownerId=$1)",
+        "SELECT * FROM Items WHERE itemId IN (SELECT itemId FROM ItemActions WHERE act='exchange' AND ownerId=$1)",
         [req.userId]
       );
-      res.json({ data });
+      res.json({ data: data.rows, isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
+    }
+  }
+);
+
+router.get(
+  "/wishExchange",
+  checkAuth,
+  upload.any(),
+  express.json(),
+  async (req, res) => {
+    try {
+      const data = await db.query(
+        "SELECT * FROM Items WHERE itemId IN (SELECT itemId FROM ItemActions WHERE act='exchange' AND clickerId=$1)",
+        [req.userId]
+      );
+      res.json({ data: data.rows, isOk: true });
+    } catch (error) {
+      console.error(error);
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -407,13 +445,13 @@ router.get(
     try {
       const { itemId } = req.params;
       const data = await db.query(
-        "SELECT * FROM Items WHERE ownerId IN (SELECT clickerId FROM ItemActions WHERE itemId=$1) AND (status!='matched' OR status!='hidden')",
+        "SELECT * FROM Items WHERE ownerId IN (SELECT clickerId FROM ItemActions WHERE itemId=$1) AND (status!='matched' AND status!='hidden')",
         [itemId]
       );
-      res.json({ data: data.rows });
+      res.json({ data: data.rows, isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -458,10 +496,10 @@ router.post(
 
       await db.query("COMMIT"); // สำเร็จและ commit transaction
 
-      res.json({ message: "แมตช์การแลกเปลี่ยนแล้ว" });
+      res.json({ message: "แมตช์การแลกเปลี่ยนแล้ว", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -481,10 +519,14 @@ router.get(
       const myItem = await db.query("SELECT * FROM Items WHERE itemId=$1", [
         itemId,
       ]);
-      res.json({ myItem, matchItem });
+      res.json({
+        myItem: myItem.rows[0],
+        matchItem: matchItem.rows[0],
+        isOk: true,
+      });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );
@@ -497,10 +539,12 @@ router.delete(
   async (req, res) => {
     try {
       const { itemId } = req.params;
-      const { itemida, itemidb, ownerida, owneridb } = (await db.query(
-        "SELECT * FROM Matches WHERE itemIdA=$1 AND ownerIdA=$2"
-      ),
-      [itemId, req.userId]).rows[0];
+      const { itemida, itemidb, ownerida, owneridb } = (
+        await db.query(
+          "SELECT * FROM Matches WHERE itemIdA=$1 AND ownerIdA=$2",
+          [itemId, req.userId]
+        )
+      ).rows[0];
       await db.query("BEGIN");
       await db.query(
         "DELETE FROM Matches WHERE itemIdA IN ($1,$2) OR itemIdB IN ($1,$2)",
@@ -511,10 +555,10 @@ router.delete(
         [itemida, itemidb]
       );
       await db.query("COMMIT");
-      res.json({ message: "ยกเลิกการแมตช์แล้ว" });
+      res.json({ message: "ยกเลิกการแมตช์แล้ว", isOk: true });
     } catch (error) {
       console.error(error);
-      res.json({ error });
+      res.json({ error, isOk: false });
     }
   }
 );

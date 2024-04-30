@@ -8,7 +8,7 @@ const checkAuth = (req, res, next) => {
     next();
   } catch (error) {
     console.error(error);
-    res.json({ message: "Token หมดอายุ" });
+    res.json({ message: "Token หมดอายุ", isOk: false });
   }
 };
 module.exports = checkAuth;
