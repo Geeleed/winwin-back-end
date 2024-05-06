@@ -2,13 +2,21 @@ require("dotenv").config();
 const pg = require("pg");
 const { Pool, Client } = pg;
 
-const db = new Client({
-  user: process.env.user,
-  host: process.env.host,
-  database: process.env.database,
-  password: process.env.password,
-  port: process.env.port,
-});
+const dbConfig = {
+  development: {
+    user: process.env.user,
+    host: process.env.host,
+    database: process.env.database,
+    password: process.env.password,
+    port: process.env.port,
+  },
+  production: {
+    connectionString: process.env.POSTGRES_URL,
+  },
+};
+
+const db = new Client(dbConfig[process.env.ENV]);
+
 db.connect();
 
 const createUsersTable = `

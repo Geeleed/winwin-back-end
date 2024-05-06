@@ -14,3 +14,4 @@ app.listen(server_port, server_ip, () =>
     `http://${server_ip}:${server_port}`
   )
 );
+console.log(process.env.ENV);
