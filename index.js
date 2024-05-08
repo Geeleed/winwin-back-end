@@ -16,6 +16,10 @@ app.use("/users", require("./users"));
 app.use("/items", require("./items"));
 app.use("/addresses", require("./addresses"));
 
+app.get("/", (req, res) => {
+  res.send("WINWIN back-end is ok!");
+});
+
 const { server_port, server_ip } = process.env;
 app.listen(server_port, server_ip, () =>
   console.log(
