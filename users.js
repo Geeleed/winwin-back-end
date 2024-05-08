@@ -9,6 +9,7 @@ const upload = multer({ storage });
 const checkAuth = require("./checkAuth");
 
 const router = express.Router();
+router.use(require("./cors"));
 
 router.post("/signup", upload.any(), async (req, res) => {
   const { firstname, lastname, email, password, question, answer, phone } =

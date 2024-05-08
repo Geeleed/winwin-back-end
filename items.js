@@ -28,6 +28,7 @@ const s3 = new AWS.S3({
 });
 
 const router = express.Router();
+router.use(require("./cors"));
 
 // อัปโหลดข้อมูล item ลงใน Items พร้อมทั้งเก็บไฟล์ภาพไว้ใน AWS S3
 router.post(

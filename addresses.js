@@ -6,6 +6,7 @@ const upload = multer({ storage });
 const checkAuth = require("./checkAuth");
 
 const router = express.Router();
+router.use(require("./cors"));
 
 router.post(
   "/address",
